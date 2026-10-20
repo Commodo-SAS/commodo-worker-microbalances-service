@@ -1,0 +1,9 @@
+packages:
+  - '.'
+
+# pnpm 10 uses this allowlist (allowBuilds belongs to newer pnpm versions).
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - '@swc/core'
+  - msgpackr-extract
+  - protobufjs

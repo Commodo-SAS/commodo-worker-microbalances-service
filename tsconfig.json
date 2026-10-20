@@ -1,0 +1,35 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "declaration": true,
+        "removeComments": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "allowSyntheticDefaultImports": true,
+        "target": "ES2022",
+        "sourceMap": true,
+        "outDir": "./dist",
+        "baseUrl": "./",
+        "incremental": true,
+        "skipLibCheck": true,
+        "strictNullChecks": false,
+        "noImplicitAny": false,
+        "strictBindCallApply": false,
+        "forceConsistentCasingInFileNames": false,
+        "noFallthroughCasesInSwitch": false,
+        "strict": false,
+        "paths": {
+            "@commodo-sas/shared-libs/observability": ["node_modules/@commodo-sas/shared-libs/observability/src"],
+            "@commodo-sas/shared-libs/core": ["node_modules/@commodo-sas/shared-libs/core/src"],
+            "@commodo-sas/shared-libs/core/*": ["node_modules/@commodo-sas/shared-libs/core/src/*"],
+            "@commodo-sas/shared-libs/db-managment": ["node_modules/@commodo-sas/shared-libs/db-managment/src"],
+            "@commodo-sas/shared-libs/db-managment/*": ["node_modules/@commodo-sas/shared-libs/db-managment/src/*"],
+            "@commodo-sas/shared-libs/entity": ["node_modules/@commodo-sas/shared-libs/entity/src"],
+            "@commodo-sas/shared-libs/entity/*": ["node_modules/@commodo-sas/shared-libs/entity/src/*"],
+            "@commodo-sas/shared-libs/environment-config": ["node_modules/@commodo-sas/shared-libs/environment-config/environment-config.module.ts"],
+            "@commodo-sas/shared-libs/environment-config/*": ["node_modules/@commodo-sas/shared-libs/environment-config/*"],
+            "@commodo-sas/shared-libs/sqs": ["node_modules/@commodo-sas/shared-libs/sqs/src"],
+            "@commodo-sas/shared-libs/sqs/*": ["node_modules/@commodo-sas/shared-libs/sqs/src/*"]
+        }
+    }
+}

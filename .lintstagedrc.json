@@ -1,0 +1,3 @@
+{
+    "*.{js,ts}": ["prettier --write \"apps/**/*.ts\"  *.json *.yaml .prettierrc", "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"]
+}

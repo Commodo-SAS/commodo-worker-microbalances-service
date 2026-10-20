@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1
+ARG NODE_VERSION=24
+FROM node:${NODE_VERSION}-bookworm-slim
+ENV PNPM_HOME="/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+ENV HUSKY=0 CI=true PLATFORM=LINUX
+RUN corepack enable && corepack prepare pnpm@10.14.0 --activate \
+    && apt-get update && apt-get install -y --no-install-recommends ca-certificates dumb-init \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN --mount=type=secret,id=node_auth_token,required=true \
+    set -eu; \
+    printf '@commodo-sas:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=%s\n' "$(cat /run/secrets/node_auth_token)" > /tmp/npmrc; \
+    NPM_CONFIG_USERCONFIG=/tmp/npmrc pnpm install --frozen-lockfile; \
+    rm /tmp/npmrc
+COPY . .
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["pnpm", "start:dev"]

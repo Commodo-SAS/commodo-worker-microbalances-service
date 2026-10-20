@@ -1,0 +1,52 @@
+# Uso desde la raiz: docker compose -f docker-config/docker-compose.local.yml --project-directory . up -d --build
+# Requiere el stack commodo-loyalty-aws-local (PostgreSQL y LocalStack) en ejecucion; la red es externa.
+# Comandos de desarrollo: docker compose -f docker-config/docker-compose.local.yml --project-directory . run --rm microbalances-tools pnpm typecheck
+
+services:
+  microbalances-worker:
+    build:
+      context: .
+      dockerfile: docker-config/Dockerfile.dev
+      secrets:
+        - node_auth_token
+    image: microbalances-worker:dev
+    container_name: commodo_microbalances_worker
+    restart: "no"
+    environment:
+      ENV: LOCAL
+    volumes:
+      - ./secrets.local.json:/app/secrets.local.json:ro
+      - ./apps:/app/apps
+    networks:
+      - loyalty-local
+
+  microbalances-tools:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: docker-config/Dockerfile.dev
+      secrets:
+        - node_auth_token
+    image: microbalances-worker:dev
+    entrypoint: []
+    environment:
+      ENV: LOCAL
+    volumes:
+      - ./apps:/app/apps
+      - ./docs:/app/docs
+      - ./ai:/app/ai
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./tsconfig.check.json:/app/tsconfig.check.json:ro
+      - ./tsconfig.build.json:/app/tsconfig.build.json:ro
+      - ./eslint.config.cjs:/app/eslint.config.cjs:ro
+      - ./jest.config.cjs:/app/jest.config.cjs:ro
+      - ./.prettierrc:/app/.prettierrc:ro
+
+networks:
+  loyalty-local:
+    name: commodo-loyalty-aws-local_loyalty-local
+    external: true
+
+secrets:
+  node_auth_token:
+    environment: NODE_AUTH_TOKEN

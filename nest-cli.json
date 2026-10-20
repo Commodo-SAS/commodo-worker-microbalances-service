@@ -1,0 +1,25 @@
+{
+    "$schema": "https://json.schemastore.org/nest-cli",
+    "collection": "@nestjs/schematics",
+    "sourceRoot": "apps/microbalances-worker/src",
+    "entryFile": "main",
+    "compilerOptions": {
+        "deleteOutDir": true,
+        "webpack": true,
+        "webpackConfigPath": "webpack.config.js",
+        "tsConfigPath": "apps/microbalances-worker/tsconfig.app.json"
+    },
+    "monorepo": true,
+    "root": "apps/microbalances-worker",
+    "projects": {
+        "microbalances-worker": {
+            "type": "application",
+            "root": "apps/microbalances-worker",
+            "entryFile": "main",
+            "sourceRoot": "apps/microbalances-worker/src",
+            "compilerOptions": {
+                "tsConfigPath": "apps/microbalances-worker/tsconfig.app.json"
+            }
+        }
+    }
+}

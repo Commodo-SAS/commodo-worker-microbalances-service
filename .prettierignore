@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.cache/
+coverage/
+.pnpm-store/
+.tmp/
+.temp/
+docs/reference/
+secrets.local.json
+.env*
+**/*.d.ts
