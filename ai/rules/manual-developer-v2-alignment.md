@@ -1,6 +1,6 @@
 # Alineación del skeleton con Confluence
 
-Revisión documental: **2026-10-20**. Reglas locales **2.6.0**. Las fuentes no releídas conservan su versión histórica de 2026-10-16.
+Revisión documental: **2026-10-24**. Reglas locales **2.7.1**. Las fuentes no releídas conservan su versión histórica de 2026-10-16.
 Este registro sustituye la antigua evaluación de notifications copiada al skeleton; no acredita ejecución, CI, despliegue ni release de este repositorio.
 
 ## Fuentes leídas
@@ -64,6 +64,16 @@ Solicitud explícita del usuario el 2026-10-19: documentar en el skeleton el tra
 
 Fuente de implementación: shared-libs a9693681c; evidencia/handoff 5a997067e. En la edición original del 2026-10-19 no se releyeron ni editaron páginas Confluence. La sincronización del 2026-10-20, registrada abajo, contrasta y actualiza SNS/SQS y datos/migraciones. Ninguna de estas ediciones cambia las políticas generales de validación. La excepción de omitir controles fue de la publicación de la librería, no del skeleton ni de sus consumers.
 
+## Ajuste 2.7.0 — estructura homologada, bootstrap, persistencia y comentarios
+
+Solicitud explícita del usuario el 2026-10-24, tras revisar el worker de microsaldos: (1) carpetas homologadas con el módulo `transaction` de commodo-transaction-manager-integrations; (2) `setupApp` obligatorio en `main.ts`, también en workers; (3) puertos en `domain/ports`; (4) entidades antes que SQL; (5) JSDoc en inglés como parte de implementar. AGENTS resume las invariantes; architecture-guidelines, contracts-configuration y delivery-operations las desarrollan. Sustituye la estructura `inbound/outbound` anterior.
+
+No se releyeron ni editaron páginas de Confluence; la sincronización con el Manual del desarrollador queda pendiente. Edición documental sin ejecutar tests, build ni Docker.
+
+## Ajuste 2.7.1 — comentarios en toda función
+
+Solicitud explícita del usuario el 2026-10-24: el AGENTS exige JSDoc/TSDoc en inglés en toda función, método y clase, incluidos los privados, y comentarios en línea sobre los pasos importantes dentro de cada función. Precisa el ajuste 2.7.0. No se releyeron ni editaron páginas de Confluence; edición documental sin ejecutar tests, build ni Docker.
+
 ## Sincronización solicitada — 2026-10-20
 
 Se revisó el diff completo contra HEAD y origin/skeleton. Los cambios pendientes eran documentales:
@@ -92,3 +102,11 @@ Git pudo leerse con acceso ampliado al checkout, sin cambiar su configuración. 
 seguía apiveh/staging, de otro remoto; esta entrega usa explícitamente origin y destino skeleton.
 No se ejecutaron tests, typecheck, lint, formato, build, Docker, checks documentales automatizados ni
 migraciones: la tarea autorizó análisis, documentación, commit y push, no esos controles.
+
+## Ajuste 2.6.2 — pedidos de arranque local y logs
+
+Solicitud explícita del usuario el 2026-10-20: todo pedido de levantar la app o un worker se atiende con Docker y la respuesta incluye `docker compose -f docker-config/docker-compose.local.yml --project-directory . logs -f --tail=100 <servicio>`, adaptando archivo y servicio reales e indicando la raíz del repo. AGENTS resume la regla y delivery-operations desarrolla el procedimiento; se conserva el ajuste previo 2.6.1.
+
+Contraste del 2026-10-20: [Docker](https://avanadecapital.atlassian.net/wiki/spaces/CEH/pages/386826241), versión 6. La página ya exige aplicación y comandos locales dentro de Docker Compose y autorización explícita para ejecutarlos. La precisión añadida localmente establece que el pedido de arranque constituye esa autorización y exige entregar el comando de logs con seguimiento (`-f`) y las últimas 100 líneas. La página usa ejemplos sin seguimiento; sincronizar esta precisión con Confluence queda pendiente para el mantenedor. No se modificó Confluence ni se distribuyeron reglas a consumers.
+
+Edición documental; revisión del diff sin ejecutar Docker, tests, build ni checks automatizados.

@@ -4,33 +4,51 @@
 
 La base técnica inicial es para backends NestJS/TypeScript, no una plantilla universal para frontends, Python o librerías publicables. Esos repos pueden reutilizar los principios con un perfil específico.
 
-Estructura objetivo por feature:
+Estructura objetivo por feature (homologada con el módulo `transaction` de `commodo-transaction-manager-integrations`, en `apps/transaction-manager/src/modules/transaction`, que es la referencia viva):
 
 ```text
 apps/<service>/src/
-  main.ts                       bootstrap y ciclo de vida
-  <service>.module.ts           composición
-  environment/                  adaptación mínima de configuración
-  modules/<feature>/
-    domain/                     modelos, reglas puras, puertos
-    application/                casos de uso
+  main.ts                          bootstrap (setupApp) y ciclo de vida
+  <service>.module.ts              composición
+  modules/<feature>/               un servicio de una sola feature puede usar src/ directamente
+    domain/
+      enums/ errors/ interfaces/ models/
+      ports/                       puertos; secondary/ para repositorios y mensajería de salida
+    application/
+      use-cases/<caso>/            <caso>.service.ts
+      services/                    servicios; handlers/ para reglas por tipo
     infrastructure/
-      inbound/                  HTTP, SQS, tareas
-      outbound/                 proveedores, repositorios
-    <feature>.module.ts         bindings DI
+      adapters/
+        primary/                   entrada: http/<feature>/, sqs/ (consumidores)
+        secondary/                 salida: repositories/ (+ entities/), sqs/, proveedores
+      config/  environment/        configuración validada y EnvironmentUtils propio
+    <feature>.module.ts            bindings DI
 ```
 
-No mover carpetas existentes solo por estética. Migrar una feature cuando aporte límites verificables y mantenga imports/contratos.
+Antes de crear carpetas o nombres, leer el módulo de referencia y homologar. Reglas:
+
+- Ningún archivo suelto en la raíz de `domain/`, `application/` o `infrastructure/` (se admiten barrels `index.ts`): cada archivo va en la carpeta de su rol.
+- Los puertos viven en `domain/ports`, nunca en `application`; los de persistencia y mensajería de salida en `domain/ports/secondary`, uno por agregado.
+- Los servicios y handlers que aplican reglas sobre puertos viven en `application/services`; el dominio contiene modelos, enums, errores, interfaces y puertos.
+- Consumidores SQS y controllers son adaptadores `primary`; repositorios, clientes SQS y publishers son `secondary`.
+- Un repositorio por puerto, con una sola clase por archivo. Sin entidades compartidas disponibles, declarar entidades mínimas (solo las columnas usadas) en `infrastructure/adapters/secondary/repositories/entities`.
+- Los `*.spec.ts` van junto al archivo que prueban; los dobles compartidos en `test/` del servicio.
+
+Código y repos nuevos siguen esta estructura desde el inicio. No mover carpetas existentes solo por estética. Migrar una feature cuando aporte límites verificables y mantenga imports/contratos.
 
 ## Dependencias
 
 - Dominio no importa Nest, AWS, Firebase, ORM ni configuración de runtime.
-- Aplicación consume puertos definidos por el caso de uso. No importa adaptadores concretos.
+- Aplicación consume los puertos declarados en `domain/ports`. No importa adaptadores concretos.
 - Infraestructura implementa puertos y traduce errores/resultados externos.
 - El módulo compone implementaciones y lifecycle. Inyectar handlers mediante un token tipado; no usar service locator.
 - DTO de transporte y modelo de dominio tienen responsabilidades distintas; mapear donde cambien semántica o invariantes.
 - Evitar servicios globales mutables, ciclos y librerías locales usadas como cajón de utilidades.
 - Compartir código cuando tenga contrato estable y múltiples consumidores reales. Un contrato cross-repo pertenece al paquete apropiado y se publica; una regla exclusiva del negocio se queda en su servicio.
+
+## Convenciones de nombres
+
+Sufijo de archivo y clase según el rol, como en el módulo de referencia: caso de uso `<caso>.service.ts` (`<Caso>Service`), servicio `<nombre>.service.ts`, handler `<tipo>-transaction.handler.ts`, puerto `<agregado>.port.ts` (interfaz y token `Symbol` si se inyecta), repositorio `<agregado>.repository.ts`, entidad `<tabla>.entity.ts`, consumidor `<nombre>-sqs.consumer.ts`, cliente `<nombre>-sqs.client.ts`, modelo de evento `<nombre>.event.ts` o `models/`. Reutilizar los nombres del legado cuando se porta lógica, para poder contrastarla.
 
 ## Controles objetivo
 

@@ -1,0 +1,108 @@
+import { MicrobalanceRuleError } from '../../../../domain/errors/microbalance.errors';
+import { MicrobalanceMovement } from '../../../../domain/interfaces/microbalance-movement.interface';
+import { BalanceUnit } from '../../../../domain/ports/secondary/microbalance-store.port';
+import { TransactionType, WalletBalanceStatus } from '../../../../domain/enums/transaction-type.enum';
+import { BaseTransactionHandler } from './base-transaction.handler';
+
+/**
+ * Transfers, redemptions, purchases, surcharges, credits and bonuses: consumes the sender bags oldest first and
+ * creates a receiver bag per consumed bag. Any shortfall becomes a sender debt bag only when the movement allows
+ * sender debt; otherwise it is rejected. Ported unchanged from the legacy transfer handler.
+ */
+export class TransferTransactionHandler extends BaseTransactionHandler {
+    /**
+     * Consumes the sender bags and credits the receiver, creating a debt bag for any shortfall when sender debt is allowed.
+     * @throws MicrobalanceRuleError when a wallet is missing or the balance is insufficient and sender debt is not allowed.
+     */
+    async execute(movement: MicrobalanceMovement, unit: BalanceUnit): Promise<void> {
+        const { amount, transactionId, createUserId, walletTransferId, walletReceiverId, transactionType, allowSenderDebt } = movement;
+
+        // Step 1: validate the wallets the movement needs.
+        this.validateWallet(walletTransferId, 'emisora');
+
+        // A credit funded from a wallet that lands on a credit line has no receiver wallet.
+        const isCreditToCreditLine = transactionType === TransactionType.CREDIT && !!walletTransferId && !walletReceiverId;
+
+        if (!isCreditToCreditLine) {
+            this.validateWallet(walletReceiverId, 'receptora');
+        }
+
+        // Step 2: draw from the sender bags oldest first (FIFO).
+        const availableBalances = await unit.walletBalances.findAllAvailableByWalletId(walletTransferId);
+
+        let remainingAmount = amount;
+
+        for (const balance of availableBalances) {
+            if (remainingAmount <= 0) break;
+
+            // Debt bags (negative available amount) are not spendable credit.
+            if (balance.availableAmount <= 0) continue;
+
+            // Use as much of this bag as the movement still needs.
+            const amountToUse = Math.min(remainingAmount, balance.availableAmount);
+            const newAvailableAmount = balance.availableAmount - amountToUse;
+
+            // Reduce the sender bag; it becomes USED once it is exhausted.
+            await unit.walletBalances.update(balance.id, {
+                availableAmount: newAvailableAmount,
+                updatedBy: createUserId,
+                balanceStatus: this.resolveBalanceStatus(newAvailableAmount, balance.balanceStatus),
+            });
+
+            // Record which sender bag funded this movement.
+            await unit.references.create({ transactionId, walletBalanceId: balance.id, amountUsed: amountToUse, createdBy: createUserId });
+
+            // Mirror the consumed amount as a receiver bag and let it cover the receiver debt.
+            if (!isCreditToCreditLine && walletReceiverId) {
+                const newWalletBalance = await this.createWalletBalance(unit, transactionId, walletReceiverId, amountToUse, createUserId);
+
+                await this.coverNegativeBalances(unit, {
+                    walletId: walletReceiverId,
+                    amount: amountToUse,
+                    newWalletBalanceId: newWalletBalance.id,
+                    createUserId,
+                    transactionId,
+                });
+            }
+
+            remainingAmount -= amountToUse;
+        }
+
+        // Step 3: the sender bags did not cover the whole amount.
+        if (remainingAmount > 0) {
+            // Without sender debt the shortfall is an error and the transaction rolls back.
+            if (!allowSenderDebt) {
+                throw new MicrobalanceRuleError(
+                    'insufficient_balance',
+                    `Saldo insuficiente en las bolsas disponibles. Faltan ${remainingAmount} para completar la transferencia`,
+                );
+            }
+
+            // With sender debt the shortfall becomes a negative bag on the sender wallet.
+            const debtBag = await unit.walletBalances.create({
+                transactionId,
+                walletId: walletTransferId,
+                originalAmount: -remainingAmount,
+                availableAmount: -remainingAmount,
+                balanceStatus: WalletBalanceStatus.AVAILABLE,
+                expirationDate: this.getDefaultExpirationDate(),
+                createdBy: createUserId,
+            });
+
+            await unit.references.create({ transactionId, walletBalanceId: debtBag.id, amountUsed: remainingAmount, createdBy: createUserId });
+
+            // The receiver still gets the full amount, so the shortfall is mirrored as a receiver bag too.
+            if (!isCreditToCreditLine && walletReceiverId) {
+                const receiverBag = await this.createWalletBalance(unit, transactionId, walletReceiverId, remainingAmount, createUserId);
+
+                await this.coverNegativeBalances(unit, {
+                    walletId: walletReceiverId,
+                    amount: remainingAmount,
+                    newWalletBalanceId: receiverBag.id,
+                    createUserId,
+                    transactionId,
+                });
+            }
+        }
+    }
+}

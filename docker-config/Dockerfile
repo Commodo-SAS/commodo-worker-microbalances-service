@@ -29,5 +29,8 @@ COPY --chown=node:node package.json ./
 COPY --chown=node:node --from=production-dependencies /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/dist ./dist
 USER node
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD node -e "require('http').get('http://127.0.0.1:8000/microbalances/api/v1/health-check',(res)=>process.exit(res.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/apps/microbalances-worker/main.js"]

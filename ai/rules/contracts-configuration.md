@@ -31,6 +31,15 @@ ENV=LOCAL
 Esta regla fue solicitada el 2026-10-16. La política y el estado del código son distintos: cada repo registra brechas concretas en su perfil, sin introducir detalles de negocio en esta guía común.
 Referencia AWS: [task IAM role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html).
 
+## Bootstrap (`main.ts`)
+
+- `main.ts` crea la app con `NestFactory.create`, asigna `app.useLogger(app.get(CommodoLoggerService))`, llama `app.enableShutdownHooks()` y después `setupApp(app, { ... })` de `@commodo-sas/shared-libs/core/core/bootstrap/bootstrap-app`. Un worker SQS sin API también lo usa: su listener HTTP existe solo para el liveness compartido (`healthCheck: true`, `GET /<api-prefix>/v1/health-check`).
+- Opciones base: `healthCheck: true`, `logger: { enabled: false }` (el logger ya se asignó), `xray: { enabled: false, appName }`, `routeNormalization: { collapseDoubleSlashes: true }`, `bogotaTimezoneInterceptor: true`, `allExceptionsFilter: false`, `responseInterceptor: true`. Apartarse de ellas se registra en el perfil.
+- Puerto y prefijo salen de getters del `EnvironmentUtils` propio (`getServerPort(appKey) || 8000`, `getApiPrefix()` con un valor por defecto del servicio); `main.ts` no lee `ConfigService` ni `process.env`.
+- `setupApp` exige `@nestjs/platform-express`, `@nestjs/swagger`, `body-parser`, `class-validator`, `class-transformer` y `moment-timezone` en el `package.json`.
+- La imagen declara `EXPOSE` y un `HEALTHCHECK` contra esa ruta; el liveness no prueba dependencias externas (ver observabilidad).
+- Un fallo de arranque escribe una línea JSON con el evento, el nombre del error y su mensaje truncado, sin payloads ni secretos, y termina con `process.exitCode = 1`.
+
 ## Shared-libs y toolchain
 
 - Fijar versión exacta del paquete publicado; instalación reproducible con lockfile y frozen-lockfile en CI/Docker.

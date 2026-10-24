@@ -15,5 +15,8 @@ RUN --mount=type=secret,id=node_auth_token,required=true \
     NPM_CONFIG_USERCONFIG=/tmp/npmrc pnpm install --frozen-lockfile; \
     rm /tmp/npmrc
 COPY . .
+EXPOSE 8000
+HEALTHCHECK --interval=5s --timeout=3s --start-period=30s --retries=6 \
+    CMD node -e "require('http').get('http://127.0.0.1:8000/microbalances/api/v1/health-check',(res)=>process.exit(res.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["pnpm", "start:dev"]

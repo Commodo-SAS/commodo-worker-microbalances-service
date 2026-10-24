@@ -3,11 +3,25 @@
 ## Ambientes
 
 - docker-compose.local.yaml: infraestructura opcional y emulada necesaria para el perfil, no el worker.
-- Ejecución directa LOCAL: JSON local ignorado en Git y validado.
+- Aplicación y workers LOCAL: siempre dentro de Docker Compose, con JSON local privado ignorado en Git; el host solo orquesta Docker.
 - docker-compose.staging.yml: configuración del ambiente staging para operación autorizada; no usarla para desarrollar localmente ni conectar a su DB.
 - Todos los archivos Docker viven en `docker-config/`. Dockerfile.dev: desarrollo. Dockerfile: imagen multietapa de producción, sin código/configuración sensible de desarrollo.
 
 El perfil decide qué infraestructura se incluye. Los nombres se mantienen consistentes entre nuevos repos.
+
+## Arranque local solicitado y comando de logs
+
+Una solicitud de “levantar”, “encender” o “arrancar” la aplicación o un worker autoriza ejecutar su arranque local con Docker Compose. Revisar el perfil, el Compose real y el estado existente; si ya está en ejecución, informar ese estado sin reiniciarlo. Si está detenido, levantar únicamente el servicio solicitado y las dependencias locales que requiera. Mantener ENV=LOCAL, configuración privada por JSON y destinos locales; no ejecutar la app en el host.
+
+Comprobar el estado posterior y, cuando exista, el healthcheck. Distinguir contenedor en ejecución, aplicación iniciada y salud confirmada; si falla el arranque, informar el error y el estado real. No ejecutar tests, builds, migraciones ni purgas como efecto implícito del pedido de arranque.
+
+Toda respuesta a ese pedido debe incluir un comando copiable de seguimiento de logs, ejecutado desde la raíz del repositorio correspondiente, con esta estructura:
+
+```powershell
+docker compose -f docker-config/docker-compose.local.yml --project-directory . logs -f --tail=100 <servicio>
+```
+
+Sustituir `<servicio>` por el nombre definido en `services` y el archivo por el Compose real del perfil (incluida su extensión). Mantener `--project-directory . logs -f --tail=100` en el comando entregado. Usar Compose para el comando de logs de la respuesta; no sustituirlo por `docker logs <nombre-contenedor>`. El agente entrega el comando y usa lecturas acotadas para diagnosticar, sin dejar un seguimiento indefinido abierto.
 
 ## Build y promoción
 
@@ -77,6 +91,7 @@ No conectar como efecto lateral de importar shared-libs ni persistir logs técni
 ## TypeORM
 
 El consumer registra entidades propias y conexiones nombradas mediante APIs públicas de DBManagmentModule. forFeature e InjectRepository deben usar el mismo nombre.
+Consultar con entidades TypeORM y query builder, como los repositorios del monolito; SQL directo solo si el costo, la complejidad o la concurrencia lo justifican (por ejemplo `set_config` de timeouts o bloqueos que el ORM no expresa) y con el porqué en el perfil. Sin entidades compartidas disponibles, declarar entidades mínimas con solo las columnas usadas en `infrastructure/adapters/secondary/repositories/entities`.
 Migraciones viven en el consumer, nunca en el tarball compartido. createMigrationDataSource usa historial migrations; preservar tablas históricas hasta reconciliarlas.
 Para ejecutar TS publicado: launcher CommonJS con TS_NODE_SKIP_IGNORE=true, tsconfig-paths/register antes de typeorm/cli-ts-node-commonjs. No alias genérico de shared-libs.
 
