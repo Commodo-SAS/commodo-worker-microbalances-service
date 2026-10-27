@@ -41,20 +41,20 @@ Código y repos nuevos siguen esta estructura desde el inicio. No mover carpetas
 - Dominio no importa Nest, AWS, Firebase, ORM ni configuración de runtime.
 - Aplicación consume los puertos declarados en `domain/ports`. No importa adaptadores concretos.
 - Infraestructura implementa puertos y traduce errores/resultados externos.
-- El módulo compone implementaciones y lifecycle. Inyectar handlers mediante un token tipado; no usar service locator.
+- El módulo compone implementaciones y lifecycle. Inyectar handlers y puertos por su clase abstracta (token tipado); no usar service locator.
 - DTO de transporte y modelo de dominio tienen responsabilidades distintas; mapear donde cambien semántica o invariantes.
 - Evitar servicios globales mutables, ciclos y librerías locales usadas como cajón de utilidades.
 - Compartir código cuando tenga contrato estable y múltiples consumidores reales. Un contrato cross-repo pertenece al paquete apropiado y se publica; una regla exclusiva del negocio se queda en su servicio.
 
 ## Convenciones de nombres
 
-Sufijo de archivo y clase según el rol, como en el módulo de referencia: caso de uso `<caso>.service.ts` (`<Caso>Service`), servicio `<nombre>.service.ts`, handler `<tipo>-transaction.handler.ts`, puerto `<agregado>.port.ts` (interfaz y token `Symbol` si se inyecta), repositorio `<agregado>.repository.ts`, entidad `<tabla>.entity.ts`, consumidor `<nombre>-sqs.consumer.ts`, cliente `<nombre>-sqs.client.ts`, modelo de evento `<nombre>.event.ts` o `models/`. Reutilizar los nombres del legado cuando se porta lógica, para poder contrastarla.
+Sufijo de archivo y clase según el rol, como en el módulo de referencia: caso de uso `<caso>.service.ts` (`<Caso>Service`), servicio `<nombre>.service.ts`, handler `<tipo>-transaction.handler.ts`, puerto `<agregado>.port.ts` (clase abstracta que es su propio token; `Symbol` solo con argumento escrito), repositorio `<agregado>.repository.ts`, entidad `<tabla>.entity.ts`, consumidor `<nombre>-sqs.consumer.ts`, cliente `<nombre>-sqs.client.ts`, modelo de evento `<nombre>.event.ts` o `models/`. Reutilizar los nombres del legado cuando se porta lógica, para poder contrastarla.
 
 ## Controles objetivo
 
 Reglas automáticas de imports: dominio no alcanza infraestructura; aplicación no alcanza SDKs/adaptadores. Una prueba debe poder ejecutar el caso de uso con un puerto falso y sin AWS/DB.
 
-Usar interfaces para puertos, clases para entidades con invariantes y tokens explícitos para DI. No exigir prefijos de nombres por costumbre si contradicen APIs públicas o librerías.
+Usar clases abstractas para los puertos inyectables (son su propio token), interfaces para contratos que se construyen por transacción y no se inyectan, y clases para entidades con invariantes. Un token `Symbol` o string requiere argumento escrito en el perfil o un ADR. La conexión a base de datos se registra siempre con `DBManagmentModule.forRoot`. No exigir prefijos de nombres por costumbre si contradicen APIs públicas o librerías.
 
 ## Notifications
 

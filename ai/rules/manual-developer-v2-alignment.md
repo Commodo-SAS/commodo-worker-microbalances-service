@@ -1,6 +1,6 @@
 # Alineación del skeleton con Confluence
 
-Revisión documental: **2026-10-24**. Reglas locales **2.7.1**. Las fuentes no releídas conservan su versión histórica de 2026-10-16.
+Revisión documental: **2026-10-24**. Reglas locales **2.8.0**. Las fuentes no releídas conservan su versión histórica de 2026-10-16.
 Este registro sustituye la antigua evaluación de notifications copiada al skeleton; no acredita ejecución, CI, despliegue ni release de este repositorio.
 
 ## Fuentes leídas
@@ -73,6 +73,10 @@ No se releyeron ni editaron páginas de Confluence; la sincronización con el Ma
 ## Ajuste 2.7.1 — comentarios en toda función
 
 Solicitud explícita del usuario el 2026-10-24: el AGENTS exige JSDoc/TSDoc en inglés en toda función, método y clase, incluidos los privados, y comentarios en línea sobre los pasos importantes dentro de cada función. Precisa el ajuste 2.7.0. No se releyeron ni editaron páginas de Confluence; edición documental sin ejecutar tests, build ni Docker.
+
+## Ajuste 2.8.0 — conexión a base de datos, puertos, concurrencia y observabilidad
+
+Solicitud explícita del usuario el 2026-10-27: el AGENTS pasa a exigir, de forma obligatoria, (1) `DBManagmentModule.forRoot` y `@InjectDataSource` para toda conexión a base de datos, con el pool verificado frente a la concurrencia, (2) puertos como clases abstractas que son su propio token, con `Symbol`/string solo con argumento escrito, (3) lecturas acotadas, presupuesto de tiempo propio, redondeo a la escala de la columna y locks/timeouts/reintentos declarados, y (4) `ObservabilityModule` con `requestAudit.enabled`, `includeRequestPayload` e `includeResponseBody` siempre en `true`, añadiendo los campos sensibles a `redactPaths` en lugar de apagar la auditoría. Corrige la guía anterior del skeleton, que indicaba interfaz y token `Symbol` y contradecía la práctica de commodo-transaction-manager-integrations. Prevalece sobre ajustes previos. No se releyeron ni editaron páginas de Confluence; edición documental sin ejecutar tests, build ni Docker. Cada repositorio debe verificar su cumplimiento: la regla no acredita que su código ya la cumpla.
 
 ## Sincronización solicitada — 2026-10-20
 
