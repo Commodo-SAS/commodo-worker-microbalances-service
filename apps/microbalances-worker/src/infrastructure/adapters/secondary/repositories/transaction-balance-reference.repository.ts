@@ -8,6 +8,7 @@ import { TransactionBalanceReferenceRow } from './entities/transaction-balance-r
 
 /** Movement-to-bag references persisted through the entity manager of the active transaction. */
 export class TransactionBalanceReferenceRepository implements BalanceReferencePort {
+    /** @param manager - Entity manager of the active transaction. */
     constructor(private readonly manager: EntityManager) {}
 
     /** Persists a reference between a movement and a bag. */

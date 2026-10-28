@@ -25,6 +25,18 @@ export class MicrobalanceRuleError extends MicrobalanceError {
     readonly kind = 'rule';
 }
 
+/**
+ * The processing time budget ran out while the event was being applied. It is not a MicrobalanceError, so the consumer
+ * classifies it as transient: the transaction rolls back and the delivery is retried.
+ */
+export class MicrobalanceDeadlineExceededError extends Error {
+    /** Builds the error with a fixed message and a stable name that is safe to log. */
+    constructor() {
+        super('The microbalances time budget was exhausted before the event finished');
+        this.name = 'MicrobalanceDeadlineExceededError';
+    }
+}
+
 /** The antecedent of a billing child movement has no microbalances yet; the delivery must be retried later. */
 export class MicrobalanceDependencyPendingError extends MicrobalanceError {
     readonly kind = 'dependency';

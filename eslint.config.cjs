@@ -54,4 +54,22 @@ module.exports = tseslint.config(
             ],
         },
     },
+    {
+        // The application module is the composition seam: like TransactionApplicationModule in the reference module, it
+        // imports the secondary infrastructure module that provides the ports. Use cases and services stay restricted.
+        files: ['apps/**/application/*.application.module.ts'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            group: ['@aws-sdk/*', 'firebase-admin', 'typeorm'],
+                            message: 'Application must depend on ports, not infrastructure adapters.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
 );

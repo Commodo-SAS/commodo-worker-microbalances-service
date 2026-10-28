@@ -1,5 +1,6 @@
 import { InMemoryMicrobalanceStore, InMemoryMicrobalanceUnit } from '../../../../test/in-memory-microbalance-unit';
 import { MicrobalanceEnvelope, MicrobalanceEventType } from '../../../domain/models/microbalance-event';
+import { MicrobalanceDeadlineExceededError } from '../../../domain/errors/microbalance.errors';
 import { ApplyMicrobalancesService } from './apply-microbalances.service';
 
 function envelope(
@@ -272,5 +273,13 @@ describe('ApplyMicrobalancesService', () => {
             business: { reason: 'already_applied', transactionId: 100, transactionTypeId: 2 },
         });
         expect(JSON.stringify(input)).not.toMatch(/amount|userId/);
+    });
+
+    it('rolls back instead of applying a movement once the time budget is exhausted', async () => {
+        await expect(useCase.execute({ envelope: cashback(), expectedEnvironment: 'local', deadlineAt: Date.now() - 1 })).rejects.toThrow(
+            MicrobalanceDeadlineExceededError,
+        );
+
+        expect(unit.bags).toHaveLength(0);
     });
 });

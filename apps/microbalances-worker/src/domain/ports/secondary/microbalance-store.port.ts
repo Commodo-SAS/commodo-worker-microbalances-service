@@ -46,15 +46,15 @@ export interface MicrobalanceTransactionOptions {
     deadlineAt: number;
 }
 
-/** Runs microbalance work atomically; the implementation owns commit, rollback and transient retries. */
-export interface MicrobalanceStore {
+/**
+ * Runs microbalance work atomically; the implementation owns commit, rollback and transient retries.
+ * It is an abstract class so Nest uses it as the injection token, like the ports of the reference module.
+ */
+export abstract class MicrobalanceStore {
     /**
      * Executes the work in one transaction and commits only when it resolves.
      * @param work - Callback receiving the transaction-bound unit; throwing rolls everything back.
      * @param options - Time budget shared by all retry attempts.
      */
-    transaction<T>(work: (unit: MicrobalanceUnit) => Promise<T>, options: MicrobalanceTransactionOptions): Promise<T>;
+    abstract transaction<T>(work: (unit: MicrobalanceUnit) => Promise<T>, options: MicrobalanceTransactionOptions): Promise<T>;
 }
-
-/** Dependency-injection token binding the store port to its adapter. */
-export const MICROBALANCE_STORE = Symbol('MICROBALANCE_STORE');

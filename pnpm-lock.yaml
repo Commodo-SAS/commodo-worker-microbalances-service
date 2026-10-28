@@ -21,8 +21,8 @@ importers:
         specifier: ^3.374.0
         version: 3.374.0
       '@commodo-sas/shared-libs':
-        specifier: 4.0.0
-        version: 4.0.0(eac6cc006eb8ea7745b6c8e80864b9b4)
+        specifier: 4.1.0
+        version: 4.1.0(eac6cc006eb8ea7745b6c8e80864b9b4)
       '@nestjs/common':
         specifier: ^10.3.3
         version: 10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -436,8 +436,8 @@ packages:
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
 
-  '@commodo-sas/shared-libs@4.0.0':
-    resolution: {integrity: sha512-zvd5n0MREmL1XSnu8n01Q49XmISh2VRDQq5tQCHcCaHDeBaGQPr3UnMxoUcmCn140sGFvCYGg1sYpbtmlT6R5g==, tarball: https://npm.pkg.github.com/download/@commodo-sas/shared-libs/4.0.0/b33afb838c50ce58d42a0c1958641747c414ba95}
+  '@commodo-sas/shared-libs@4.1.0':
+    resolution: {integrity: sha512-1NzgnIB+jrnh6/wTQYez27K9DQarzc8yEhLkrn4VvkKf0inDRhQofkYnLiEAYEv14mUjzZ929Ep1UfJzkNSEcg==, tarball: https://npm.pkg.github.com/download/@commodo-sas/shared-libs/4.1.0/3c1eed83eccb80ff79cf89a5410b3ea466ce7155}
     peerDependencies:
       '@nestjs/bull': ^11.0.0
       '@nestjs/common': ^10.0.0
@@ -4702,7 +4702,7 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@commodo-sas/shared-libs@4.0.0(eac6cc006eb8ea7745b6c8e80864b9b4)':
+  '@commodo-sas/shared-libs@4.1.0(eac6cc006eb8ea7745b6c8e80864b9b4)':
     dependencies:
       '@aws-sdk/client-dynamodb': 3.1154.0
       '@aws-sdk/client-sns': 3.1154.0

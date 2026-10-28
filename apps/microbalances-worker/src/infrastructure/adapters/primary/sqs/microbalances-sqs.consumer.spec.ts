@@ -52,13 +52,19 @@ describe('MicrobalancesSqsConsumer', () => {
     let client: { send: jest.Mock; destroy: jest.Mock };
     let execute: jest.Mock;
     let logs: { update: jest.Mock; save: jest.Mock };
-    let dataSource: { initialize: jest.Mock; destroy: jest.Mock; isInitialized: boolean; getRepository: jest.Mock };
+    let dataSource: {
+        initialize: jest.Mock;
+        destroy: jest.Mock;
+        isInitialized: boolean;
+        options: { extra: { max: number } };
+        getRepository: jest.Mock;
+    };
     let logger: { queue: jest.Mock; runtime: jest.Mock };
     let requestContext: { run: jest.Mock };
 
     function build(config: Partial<MicrobalancesWorkerConfiguration> = {}): MicrobalancesSqsConsumer {
         return new MicrobalancesSqsConsumer(
-            { ...baseConfig, ...config },
+            { getMicrobalancesWorkerConfiguration: () => ({ ...baseConfig, ...config }) } as never,
             client as never,
             dataSource as never,
             { execute } as never,
@@ -90,6 +96,7 @@ describe('MicrobalancesSqsConsumer', () => {
             initialize: jest.fn().mockResolvedValue(undefined),
             destroy: jest.fn().mockResolvedValue(undefined),
             isInitialized: true,
+            options: { extra: { max: 30 } },
             getRepository: jest.fn(() => ({ ...logs, create: (row: object) => row })),
         };
         logger = { queue: jest.fn(), runtime: jest.fn() };
@@ -298,10 +305,17 @@ describe('MicrobalancesSqsConsumer', () => {
             await consumer.onModuleInit();
             await consumer.onModuleDestroy();
 
-            expect(dataSource.initialize).not.toHaveBeenCalled();
             expect(send).not.toHaveBeenCalled();
             expect(client.destroy).not.toHaveBeenCalled();
             expect(logger.runtime).toHaveBeenCalledWith(expect.objectContaining({ event: 'microbalances.consumer.disabled' }));
+        });
+
+        it('refuses to start when the shared pool cannot serve every polling loop', async () => {
+            dataSource.options.extra.max = 4;
+            const consumer = build({ concurrency: 3 });
+
+            await expect(consumer.onModuleInit()).rejects.toThrow('MICROBALANCES_CONCURRENCY + 2');
+            expect(send).not.toHaveBeenCalled();
         });
 
         it('starts one polling loop per configured worker with the configured receive options', async () => {
@@ -318,7 +332,6 @@ describe('MicrobalancesSqsConsumer', () => {
             await consumer.onModuleInit();
 
             const receives = sent(ReceiveMessageCommand);
-            expect(dataSource.initialize).toHaveBeenCalledTimes(1);
             expect(receives).toHaveLength(3);
             expect(receives[0].input).toMatchObject({
                 QueueUrl: baseConfig.queueUrl,
@@ -329,7 +342,7 @@ describe('MicrobalancesSqsConsumer', () => {
             await consumer.onModuleDestroy();
         });
 
-        it('stops polling, closes the client and the pool and keeps unprocessed messages on shutdown', async () => {
+        it('stops polling, closes the client, leaves the pool to DBManagmentModule and keeps unprocessed messages on shutdown', async () => {
             send.mockImplementation(
                 (_command: unknown, options: { abortSignal: AbortSignal }) =>
                     new Promise((_resolve, reject) => options?.abortSignal.addEventListener('abort', () => reject(new Error('aborted')))),
@@ -340,7 +353,7 @@ describe('MicrobalancesSqsConsumer', () => {
             await consumer.onModuleDestroy();
 
             expect(client.destroy).toHaveBeenCalledTimes(1);
-            expect(dataSource.destroy).toHaveBeenCalledTimes(1);
+            expect(dataSource.destroy).not.toHaveBeenCalled();
             expect(events()).toContain('microbalances.consumer.stopped');
             expect(sent(DeleteMessageCommand)).toHaveLength(0);
             const stopped = logger.queue.mock.calls.map(([input]) => input).find((input) => input.event === 'microbalances.consumer.stopped');

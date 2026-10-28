@@ -1,6 +1,9 @@
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { ChangeMessageVisibilityCommand, DeleteMessageCommand, Message, ReceiveMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { DataSource } from 'typeorm';
+import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
+import { EDatabaseConfig } from '@commodo-sas/shared-libs/core/core/enums/database-config.enum';
 import { CommodoLoggerService, RequestContextService } from '@commodo-sas/shared-libs/observability';
 import { EventProcessingLogEntity, ProcessingStatus } from '@commodo-sas/shared-libs/sqs';
 import {
@@ -9,12 +12,11 @@ import {
 } from '../../../../application/use-cases/apply-microbalances/apply-microbalances.service';
 import { MicrobalanceContractError, MicrobalanceError } from '../../../../domain/errors/microbalance.errors';
 import { MAX_EVENT_BYTES, MicrobalanceEnvelope, parseEnvelope } from '../../../../domain/models/microbalance-event';
-import { MICROBALANCES_CONFIG } from '../../../config/microbalances-worker.config';
-import { MicrobalancesWorkerConfiguration } from '../../../environment/microbalances-environment.utils';
-import { MICROBALANCES_SQS_CLIENT } from '../../secondary/sqs/microbalances-sqs.client';
+import { MicrobalancesEnvironmentUtils, MicrobalancesWorkerConfiguration } from '../../../environment/microbalances-environment.utils';
 
 /** The use case exceeded its time budget; treated as a transient failure so the message is retried. */
 class ProcessingTimeoutError extends Error {
+    /** Builds the error with a fixed message and a stable name that is safe to log. */
     constructor() {
         super('Message processing exceeded its time budget');
         this.name = 'ProcessingTimeoutError';
@@ -40,16 +42,18 @@ export class MicrobalancesSqsConsumer implements OnModuleInit, OnModuleDestroy {
     private loops: Promise<void>[] = [];
     private readonly stop = new AbortController();
     private readonly queueName: string;
+    private readonly config: MicrobalancesWorkerConfiguration;
 
-    /** Derives the queue name used in logs from the configured queue URL. */
+    /** Reads the worker configuration once and derives the queue name used in logs from the queue URL. */
     constructor(
-        @Inject(MICROBALANCES_CONFIG) private readonly config: MicrobalancesWorkerConfiguration,
-        @Inject(MICROBALANCES_SQS_CLIENT) private readonly client: SQSClient,
-        private readonly dataSource: DataSource,
+        environmentUtils: MicrobalancesEnvironmentUtils,
+        private readonly client: SQSClient,
+        @InjectDataSource(EDatabaseConfig.DEFAULT) private readonly dataSource: DataSource,
         private readonly applyMicrobalances: ApplyMicrobalancesService,
         private readonly logger: CommodoLoggerService,
         private readonly requestContext: RequestContextService,
     ) {
+        this.config = environmentUtils.getMicrobalancesWorkerConfiguration();
         this.queueName = this.config.queueUrl.split('/').pop() ?? 'microbalances';
     }
 
@@ -64,8 +68,9 @@ export class MicrobalancesSqsConsumer implements OnModuleInit, OnModuleDestroy {
             });
             return;
         }
-        // The connection is opened only when consumption is enabled, so a disabled worker never touches the database.
-        await this.dataSource.initialize();
+        // DBManagmentModule owns the connection; fail fast if its pool cannot serve every polling loop, because a starved
+        // pool would surface as transient connection timeouts instead of an obvious configuration error.
+        this.assertPoolCanServeConcurrency();
         this.running = true;
         // One independent polling loop per configured worker bounds the messages in flight.
         this.loops = Array.from({ length: this.config.concurrency }, () => this.poll());
@@ -81,9 +86,9 @@ export class MicrobalancesSqsConsumer implements OnModuleInit, OnModuleDestroy {
         this.running = false;
         this.stop.abort();
         const drained = await this.waitForLoops();
-        // Close the clients only after the drain; unfinished messages are redelivered by SQS.
+        // Close the SQS client only after the drain; unfinished messages are redelivered by SQS. The pool belongs to
+        // DBManagmentModule, which closes it in its own shutdown hook after this one.
         this.client.destroy();
-        if (this.dataSource.isInitialized) await this.dataSource.destroy();
         this.logQueue(
             drained ? 'info' : 'warn',
             'microbalances.consumer.stopped',
@@ -91,6 +96,18 @@ export class MicrobalancesSqsConsumer implements OnModuleInit, OnModuleDestroy {
             'receive',
             drained ? 'success' : 'timeout',
         );
+    }
+
+    /**
+     * Verifies that the shared pool has a connection for every polling loop plus the processing log writes.
+     * @throws Error when the configured pool is smaller than concurrency + 2.
+     */
+    private assertPoolCanServeConcurrency(): void {
+        const poolMax = Number((this.dataSource.options as PostgresConnectionOptions).extra?.max);
+        const required = this.config.concurrency + 2;
+        if (Number.isFinite(poolMax) && poolMax < required) {
+            throw new Error(`Database pool (${poolMax}) is smaller than MICROBALANCES_CONCURRENCY + 2 (${required}); raise orm.pool.max`);
+        }
     }
 
     /** One polling loop: long poll, process the batch sequentially and back off when SQS fails. */

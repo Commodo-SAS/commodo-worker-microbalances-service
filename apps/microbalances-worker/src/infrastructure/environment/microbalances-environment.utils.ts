@@ -37,6 +37,7 @@ const MICROBALANCES_WORKER_GROUP = 'MICROBALANCES_WORKER_CONFIG';
 export class MicrobalancesEnvironmentUtils extends EnvironmentUtils {
     private loadedSecrets: Record<string, any> = {};
 
+    /** @param bootstrapConfig - Nest config service used to read the bootstrap variables before the secrets are loaded. */
     constructor(private readonly bootstrapConfig: ConfigService) {
         super(bootstrapConfig);
     }

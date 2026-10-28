@@ -21,6 +21,10 @@ export class MicrobalanceUnitRepository implements MicrobalanceUnit {
     readonly walletBalances: WalletBalancePort;
     readonly references: BalanceReferencePort;
 
+    /**
+     * Binds every repository of the unit to the same transaction manager.
+     * @param manager - Entity manager of the active transaction.
+     */
     constructor(private readonly manager: EntityManager) {
         this.walletBalances = new WalletBalanceRepository(manager);
         this.references = new TransactionBalanceReferenceRepository(manager);

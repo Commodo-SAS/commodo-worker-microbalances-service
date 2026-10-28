@@ -16,7 +16,7 @@ describe('MicrobalanceStoreRepository', () => {
     beforeEach(() => {
         manager = { query: jest.fn().mockResolvedValue([]) };
         dataSource = { transaction: jest.fn(async (_isolation: string, callback: (m: unknown) => unknown) => callback(manager)) };
-        store = new MicrobalanceStoreRepository(config, dataSource as never);
+        store = new MicrobalanceStoreRepository({ getMicrobalancesWorkerConfiguration: () => config } as never, dataSource as never);
     });
 
     it('runs the work in a READ COMMITTED transaction with bounded statement and lock timeouts', async () => {
@@ -24,7 +24,7 @@ describe('MicrobalanceStoreRepository', () => {
 
         expect(result).toBe('done');
         expect(dataSource.transaction).toHaveBeenCalledWith('READ COMMITTED', expect.any(Function));
-        expect(manager.query).toHaveBeenCalledWith(expect.stringContaining('set_config'), ['1000', '500']);
+        expect(manager.query).toHaveBeenCalledWith(expect.stringContaining('set_config'), ['1000', '500', '2000']);
     });
 
     it.each(['40001', '40P01', '55P03'])('retries when PostgreSQL reports %s', async (code) => {

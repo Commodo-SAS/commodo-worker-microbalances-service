@@ -3,6 +3,9 @@ import { MicrobalanceMovement } from '../../../../domain/interfaces/microbalance
 import { BalanceUnit } from '../../../../domain/ports/secondary/microbalance-store.port';
 import { WalletBalanceStatus } from '../../../../domain/enums/transaction-type.enum';
 
+/** Decimal places of the amount columns of wallet_balances. */
+const AMOUNT_SCALE = 8;
+
 /** Balance rule for one family of transaction types. */
 export interface TransactionHandler {
     /**
@@ -32,6 +35,24 @@ export abstract class BaseTransactionHandler implements TransactionHandler {
         if (!walletId) {
             throw new MicrobalanceRuleError('wallet_missing', `No se proporcionó la billetera ${type} para procesar la transacción`);
         }
+    }
+
+    /**
+     * Rounds an amount to the scale of the amount columns (numeric(20,8)). Binary floating point leaves residues such as
+     * 0.30000000000000004; without rounding, a bag that is really exhausted would miss the zero comparison and stay AVAILABLE.
+     */
+    protected roundAmount(value: number): number {
+        return Number(value.toFixed(AMOUNT_SCALE));
+    }
+
+    /** Subtracts two amounts and rounds the result to the column scale. */
+    protected subtract(minuend: number, subtrahend: number): number {
+        return this.roundAmount(minuend - subtrahend);
+    }
+
+    /** Adds two amounts and rounds the result to the column scale. */
+    protected add(first: number, second: number): number {
+        return this.roundAmount(first + second);
     }
 
     /** A bag that reaches zero becomes USED; otherwise it keeps its previous status. */
@@ -87,8 +108,8 @@ export abstract class BaseTransactionHandler implements TransactionHandler {
 
             // Cover as much of this debt as the new bag still holds.
             const amountToCover = Math.min(remainingAmount, Math.abs(negativeBag.availableAmount));
-            const updatedNegativeAvailable = negativeBag.availableAmount + amountToCover;
-            const updatedNewBagAvailable = remainingAmount - amountToCover;
+            const updatedNegativeAvailable = this.add(negativeBag.availableAmount, amountToCover);
+            const updatedNewBagAvailable = this.subtract(remainingAmount, amountToCover);
 
             // Raise the debt bag towards zero; it becomes USED once it is fully covered.
             await unit.walletBalances.update(negativeBag.id, {

@@ -112,4 +112,35 @@ describe('TransferTransactionHandler', () => {
         expect(unit.bagsOf(SENDER)[0].availableAmount).toBe(40);
         expect(unit.referenceRows).toHaveLength(1);
     });
+
+    it('reads the sender bags by pages and keeps drawing until the amount is covered', async () => {
+        // 450 bags of 1 need three pages of 200, so the handler must ask for the next page twice.
+        const bags = Array.from({ length: 450 }, (_, i) => unit.seedBag(SENDER, i + 1, 1));
+        const pages = jest.spyOn(unit.walletBalances, 'findSpendableByWalletId');
+
+        await handler.execute(movement({ amount: 450 }), unit);
+
+        expect(pages.mock.calls.length).toBeGreaterThanOrEqual(3);
+        expect(bags.every((seed) => unit.bags.find((b) => b.id === seed.id)?.balanceStatus === WalletBalanceStatus.USED)).toBe(true);
+        expect(unit.bagsOf(RECEIVER)).toHaveLength(450);
+    });
+
+    it('does not spend the bags its own self transfer creates and terminates', async () => {
+        const original = unit.seedBag(SENDER, 1, 100);
+
+        await handler.execute(movement({ amount: 60, walletReceiverId: SENDER }), unit);
+
+        expect(unit.bags.find((b) => b.id === original.id)?.availableAmount).toBe(40);
+        expect(unit.bags.filter((b) => b.transactionId === 900).map((b) => b.availableAmount)).toEqual([60]);
+    });
+
+    it('treats binary residues as exhausted bags: 0.1 + 0.2 covers 0.3 with no shortfall', async () => {
+        const small = unit.seedBag(SENDER, 1, 0.1);
+        const larger = unit.seedBag(SENDER, 2, 0.2);
+
+        await handler.execute(movement({ amount: 0.3 }), unit);
+
+        expect(unit.bags.find((b) => b.id === small.id)).toMatchObject({ availableAmount: 0, balanceStatus: WalletBalanceStatus.USED });
+        expect(unit.bags.find((b) => b.id === larger.id)).toMatchObject({ availableAmount: 0, balanceStatus: WalletBalanceStatus.USED });
+    });
 });

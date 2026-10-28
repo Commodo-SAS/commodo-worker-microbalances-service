@@ -1,11 +1,15 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CommodoLoggerService } from '@commodo-sas/shared-libs/observability';
 import { TransactionBalanceManagerService } from '../../services/transaction-balance-manager.service';
-import { MicrobalanceDependencyPendingError, MicrobalanceRuleError } from '../../../domain/errors/microbalance.errors';
+import {
+    MicrobalanceDeadlineExceededError,
+    MicrobalanceDependencyPendingError,
+    MicrobalanceRuleError,
+} from '../../../domain/errors/microbalance.errors';
 import { MicrobalanceEnvelope, movementsFromEnvelope } from '../../../domain/models/microbalance-event';
 import { MicrobalanceMovement } from '../../../domain/interfaces/microbalance-movement.interface';
 import { TransactionType } from '../../../domain/enums/transaction-type.enum';
-import { MICROBALANCE_STORE, MicrobalanceStore, MicrobalanceUnit } from '../../../domain/ports/secondary/microbalance-store.port';
+import { MicrobalanceStore, MicrobalanceUnit } from '../../../domain/ports/secondary/microbalance-store.port';
 
 /** Validated event plus the context needed to process it. */
 export interface ApplyMicrobalancesInput {
@@ -30,8 +34,12 @@ export type ApplyMicrobalancesOutcome =
 export class ApplyMicrobalancesService {
     private readonly balances = new TransactionBalanceManagerService();
 
+    /**
+     * @param store - Port that runs the movements in one transaction.
+     * @param logger - Structured logger for the processing outcomes.
+     */
     constructor(
-        @Inject(MICROBALANCE_STORE) private readonly store: MicrobalanceStore,
+        private readonly store: MicrobalanceStore,
         private readonly logger: CommodoLoggerService,
     ) {}
 
@@ -63,6 +71,9 @@ export class ApplyMicrobalancesService {
                 let applied = 0;
                 let skipped = 0;
                 for (const movement of movements) {
+                    // The consumer stops waiting for this event when the budget ends but cannot cancel the transaction,
+                    // so the work stops itself: throwing rolls back and releases the wallet locks held for other events.
+                    if (Date.now() >= deadlineAt) throw new MicrobalanceDeadlineExceededError();
                     if (await this.applyMovement(unit, movement)) applied++;
                     else skipped++;
                 }

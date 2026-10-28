@@ -21,6 +21,7 @@ function toRecord(row: WalletBalanceRow): WalletBalanceRecord {
 
 /** Wallet bags persisted through the entity manager of the active transaction, with the same queries as the legacy repository. */
 export class WalletBalanceRepository implements WalletBalancePort {
+    /** @param manager - Entity manager of the active transaction. */
     constructor(private readonly manager: EntityManager) {}
 
     /** Persists a bag; the generated id and defaults come back with the saved entity. */
@@ -42,6 +43,22 @@ export class WalletBalanceRepository implements WalletBalancePort {
             .andWhere('walletBalance.balanceStatus = :status', { status: 'AVAILABLE' })
             .andWhere('walletBalance.status = :active', { active: true })
             .orderBy('walletBalance.createdAt', 'ASC')
+            .getMany();
+        return rows.map(toRecord);
+    }
+
+    /** One page of positive AVAILABLE bags, oldest first; the id breaks ties so pages are stable. */
+    async findSpendableByWalletId(walletId: number, limit: number, excludeTransactionId: number): Promise<WalletBalanceRecord[]> {
+        const rows = await this.manager
+            .createQueryBuilder(WalletBalanceRow, 'walletBalance')
+            .where('walletBalance.walletId = :walletId', { walletId })
+            .andWhere('walletBalance.balanceStatus = :status', { status: 'AVAILABLE' })
+            .andWhere('walletBalance.status = :active', { active: true })
+            .andWhere('walletBalance.availableAmount > 0')
+            .andWhere('walletBalance.transactionId <> :excludeTransactionId', { excludeTransactionId })
+            .orderBy('walletBalance.createdAt', 'ASC')
+            .addOrderBy('walletBalance.id', 'ASC')
+            .take(limit)
             .getMany();
         return rows.map(toRecord);
     }

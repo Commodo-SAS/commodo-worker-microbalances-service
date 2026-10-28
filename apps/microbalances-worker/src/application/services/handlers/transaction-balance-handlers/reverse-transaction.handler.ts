@@ -124,7 +124,7 @@ export class ReverseTransactionHandler extends BaseTransactionHandler {
             if (remainingAmount <= 0) break;
 
             const amountToUse = Math.min(remainingAmount, balance.availableAmount);
-            const newAvailableAmount = balance.availableAmount - amountToUse;
+            const newAvailableAmount = this.subtract(balance.availableAmount, amountToUse);
             // Original bags that are fully drawn become REVERSED instead of USED.
             const isOriginalTransactionBalance = originalBalanceIds.has(balance.id);
             const newStatus = this.determineReverseStatus(balance, amountToUse, newAvailableAmount, isOriginalTransactionBalance);
@@ -142,7 +142,7 @@ export class ReverseTransactionHandler extends BaseTransactionHandler {
                 await this.createWalletBalance(unit, transactionId, walletReceiverId, amountToUse, createUserId);
             }
 
-            remainingAmount -= amountToUse;
+            remainingAmount = this.subtract(remainingAmount, amountToUse);
         }
 
         return remainingAmount;
@@ -184,7 +184,7 @@ export class ReverseTransactionHandler extends BaseTransactionHandler {
         const negativeBag = negativeBalances[0];
 
         if (negativeBag) {
-            const updatedNegativeAvailable = negativeBag.availableAmount - remainingAmount;
+            const updatedNegativeAvailable = this.subtract(negativeBag.availableAmount, remainingAmount);
 
             await unit.walletBalances.update(negativeBag.id, {
                 availableAmount: updatedNegativeAvailable,

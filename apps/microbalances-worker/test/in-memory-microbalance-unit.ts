@@ -42,6 +42,17 @@ export class InMemoryMicrobalanceUnit implements MicrobalanceUnit {
         },
         findAllAvailableByWalletId: async (walletId: number) =>
             this.bags.filter((b) => b.walletId === walletId && b.balanceStatus === WalletBalanceStatus.AVAILABLE).map((b) => ({ ...b })),
+        findSpendableByWalletId: async (walletId: number, limit: number, excludeTransactionId: number) =>
+            this.bags
+                .filter(
+                    (b) =>
+                        b.walletId === walletId &&
+                        b.balanceStatus === WalletBalanceStatus.AVAILABLE &&
+                        b.availableAmount > 0 &&
+                        b.transactionId !== excludeTransactionId,
+                )
+                .slice(0, limit)
+                .map((b) => ({ ...b })),
         findAllByTransactionIdAndWalletId: async (transactionId: number, walletId: number) =>
             this.bags.filter((b) => b.transactionId === transactionId && b.walletId === walletId).map((b) => ({ ...b })),
         findAllNegativeByWalletId: async (walletId: number) =>
