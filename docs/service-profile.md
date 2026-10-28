@@ -4,7 +4,7 @@ Servicio: commodo-worker-microbalances-service. Aplicación apps/microbalances-w
 listener HTTP solo para el liveness compartido (`setupApp` de shared-libs, `GET /microbalances/api/v1/health-check`);
 el trabajo lo hace el consumidor SQS. Base copiada de commodo-backend-skeleton (solo archivos
 versionados; el código de notificaciones, sus Dockerfile, Compose y CI no se heredaron).
-Shared-libs **4.0.0** exacta (última publicada al 2026-10-20), con pnpm-lock.yaml. AWS SQS
+Shared-libs **4.1.0** exacta (añade `DBManagmentConnectionsModule`; lockfile generado contra el paquete publicado), con pnpm-lock.yaml. AWS SQS
 suscrita a SNS; PostgreSQL de negocio existente. No Redis, Kafka, Firebase, crons ni rifas.
 
 Responsabilidad: aplicar los microsaldos (bolsas `wallet_balances` y referencias
@@ -25,7 +25,7 @@ portaron sin refactor funcional en `application/services/handlers/transaction-ba
   cobertura de bolsas negativas.
 - Reverso: primero las bolsas del movimiento original (estado REVERSED si se agotan), luego las demás;
   el remanente afecta la bolsa negativa existente o crea una.
-- Los cálculos usan `Number` como el legado; no se cambian redondeos ni precisión.
+- Los cálculos usan `Number` como el legado, pero los importes se redondean a la escala de la columna (8 decimales) tras cada suma o resta, para evitar residuos de coma flotante (por ejemplo 0.1 + 0.2).
 - Sin usuario registrado (`payload.userId` ausente) no se generan microsaldos. En redención ambos
   tramos se tratan como REDEMPTION. Cashback `TRANSPENDING` se procesa igual que antes.
   Un reverso sin wallets se omite. Un evento de otro ambiente se descarta.
@@ -49,6 +49,8 @@ independiente; este repo no importa código de repos vecinos. El productor puede
 opcional `allowSenderDebt` a cashback y redención; hasta entonces el worker asume `false`.
 
 ## Estructura
+
+Los módulos Nest se componen por capa, como `TransactionModule`: `MicrobalancesModule` reúne `MicrobalancesApplicationModule` (`application/`), `MicrobalancesInfrastructureModule` (`infrastructure/adapters/secondary`) y `MicrobalancesPresenterInfrastructureModule` (`infrastructure/adapters/primary`); el módulo raíz solo importa entorno, observabilidad y `MicrobalancesModule`. Cada carpeta expone un barrel `index.ts`.
 
 Estructura de carpetas homologada con el módulo `transaction` de commodo-transaction-manager-integrations
 (`apps/microbalances-worker/src`):
@@ -93,12 +95,12 @@ Solo mediante `MicrobalancesEnvironmentUtils` (extiende `EnvironmentUtils` de sh
 `getMicrobalancesWorkerConfiguration`). El grupo `MICROBALANCES_WORKER_CONFIG` de
 `secrets.local.json` o Secrets Manager trae habilitación, cola, endpoint de emulador (solo LOCAL) y los
 valores de concurrencia, timeouts y reintentos; el ejemplo sanitizado es `secrets.local.example.json`.
-`.env` solo `ENV=LOCAL`. Consumo deshabilitado por defecto: con `MICROBALANCES_WORKER_ENABLED=false` no
-se abre la conexión a la base. Logs con CommodoLoggerService, sin payloads, montos ni usuarios.
+`.env` solo `ENV=LOCAL`. Consumo deshabilitado por defecto: con `MICROBALANCES_WORKER_ENABLED=false` no se
+procesan mensajes, pero la conexión a la base la abre DBManagmentModule al arrancar. Logs con CommodoLoggerService, sin payloads, montos ni usuarios.
 
 ## Datos y migraciones
 
-Acceso a datos con entidades TypeORM (como el legado); SQL solo cuando el costo, la complejidad o la
+Conexión `default` registrada con `DBManagmentConnectionsModule.forRoot` (la variante de `DBManagmentModule` sin las entidades por defecto de shared-libs, porque este worker mapea sus propias filas) (pool desde `orm.pool` del secreto de la base, mínimo concurrencia + 2, verificado al arrancar). Acceso a datos con entidades TypeORM (como el legado); SQL solo cuando el costo, la complejidad o la
 concurrencia lo justifiquen. Hoy la única sentencia SQL directa es `set_config` de los timeouts por
 transacción, que el ORM no expone, y `markProcessed` de shared-libs. El bloqueo de wallets usa el
 query builder de la entidad con `pessimistic_write`. Usa tablas existentes: `wallets`, `wallet_balances`, `transaction_balance_reference`, `transactions`,
@@ -110,11 +112,11 @@ microsaldos sobre estas tablas: no se reprocesan transacciones históricas.
 ## Reglas transversales
 
 Arquitectura (ver [architecture-guidelines](../ai/rules/architecture-guidelines.md)): los puertos viven en
-`domain/ports/secondary` como interfaces con token explícito (`MICROBALANCE_STORE`); `application` solo los
+`domain/ports/secondary`; el puerto inyectable `MicrobalanceStore` es una clase abstracta que es su propio token y `application` solo lo
 consume; `infrastructure` los implementa. Los comentarios de código son JSDoc en inglés sobre contratos, efectos y
 comportamientos no obvios, sin comentar cada variable.
 
-Reglas **2.7.1** copiadas del checkout local de commodo-backend-skeleton, rama skeleton, el
+Reglas **2.8.0** copiadas del checkout local de commodo-backend-skeleton, rama skeleton, el
 2026-10-24. Prevalece [AGENTS](../AGENTS.md); este perfil no relaja sus reglas. Las particularidades
 van aquí y las excepciones en ADR. El desarrollo local corre en Docker; no iniciar la aplicación
 directamente en el host. Prohibida la DB de staging desde local, incluso por túneles.
@@ -138,6 +140,8 @@ directamente en el host. Prohibida la DB de staging desde local, incluso por tú
   el consumidor reintenta con backoff mientras la cola no exista. Comando: `docker compose -f
   docker-config/docker-compose.local.yml --project-directory . up -d --build`.
 - CI: sin workflow propio en .github/ (el del skeleton era de notificaciones).
+- Endurecimiento posterior a la revisión (ver [microbalances-hardening](microbalances-hardening/README.md)): migración a `DBManagmentConnectionsModule` (shared-libs 4.1.0), puertos como clases abstractas y módulos por capa con barrels, lectura FIFO paginada, redondeo de montos a escala 8, presupuesto de tiempo dentro de la transacción y `idle_in_transaction_session_timeout` por transacción. Ejecutado en contenedor con shared-libs 4.1.0: typecheck sin errores, lint, formato, 195 tests y `nest build` pasan. **Sin validar el arranque real** (cableado de DI contra PostgreSQL y LocalStack) ni la doble instancia de `EnvironmentUtils`.
+- AGENTS.md y ai/rules/architecture-guidelines.md se editaron aquí con tres reglas nuevas (conexión DB, puertos/tokens, concurrencia). Son transversales: deben propagarse por PR a la rama skeleton, que sube la versión del encabezado. Hasta entonces este repo difiere del skeleton.
 - Sin validar: transacciones concurrentes, orden de dependencias, caída entre commit y delete,
   apagado con mensajes en vuelo y comportamiento frente al dump restaurado.
 - Pendientes: owner, SLO, retención, alarmas (antigüedad de cola, DLQ, `dependency.abandoned`), IAM de

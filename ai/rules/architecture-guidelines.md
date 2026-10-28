@@ -54,7 +54,7 @@ Sufijo de archivo y clase según el rol, como en el módulo de referencia: caso 
 
 Reglas automáticas de imports: dominio no alcanza infraestructura; aplicación no alcanza SDKs/adaptadores. Una prueba debe poder ejecutar el caso de uso con un puerto falso y sin AWS/DB.
 
-Usar clases abstractas para los puertos inyectables (son su propio token), interfaces para contratos que se construyen por transacción y no se inyectan, y clases para entidades con invariantes. Un token `Symbol` o string requiere argumento escrito en el perfil o un ADR. La conexión a base de datos se registra siempre con `DBManagmentModule.forRoot`. No exigir prefijos de nombres por costumbre si contradicen APIs públicas o librerías.
+Usar clases abstractas para los puertos inyectables (son su propio token), interfaces para contratos que se construyen por transacción y no se inyectan, y clases para entidades con invariantes. Un token `Symbol` o string requiere argumento escrito en el perfil o un ADR. La conexión a base de datos se registra siempre con `DBManagmentModule.forRoot` o, en servicios ligeros que mapean sus propias entidades, con `DBManagmentConnectionsModule.forRoot` (shared-libs 4.1.0 o superior). No exigir prefijos de nombres por costumbre si contradicen APIs públicas o librerías.
 
 ## Notifications
 
