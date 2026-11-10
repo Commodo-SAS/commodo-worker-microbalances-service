@@ -106,7 +106,7 @@ transacción, que el ORM no expone, y `markProcessed` de shared-libs. El bloqueo
 query builder de la entidad con `pessimistic_write`. Usa tablas existentes: `wallets`, `wallet_balances`, `transaction_balance_reference`, `transactions`,
 `processed_events` y `event_processing_log`. No tiene migraciones ni tablas propias; synchronize y
 migrationsRun siempre en false. La migración que agrega `consumer` a `processed_events` pertenece al
-repo commodo-transaction-manager-integrations y ya está aplicada. Es el primer consumidor de
+repo commodo-transaction-manager-integrations y ya está aplicada. El índice `idx_wallet_balances_transaction_id` sobre `wallet_balances(transaction_id)` (que usa `isAntecedentSettled`) también se define allí, en `libs/db-managment/src/migrations/default-indexes`; está creado en la BD local pero pendiente de desplegar en los demás ambientes. Es el primer consumidor de
 microsaldos sobre estas tablas: no se reprocesan transacciones históricas.
 
 ## Reglas transversales
