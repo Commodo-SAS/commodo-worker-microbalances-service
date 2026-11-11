@@ -104,9 +104,9 @@ Conexión `default` registrada con `DBManagmentConnectionsModule.forRoot` (la va
 concurrencia lo justifiquen. Hoy la única sentencia SQL directa es `set_config` de los timeouts por
 transacción, que el ORM no expone, y `markProcessed` de shared-libs. El bloqueo de wallets usa el
 query builder de la entidad con `pessimistic_write`. Usa tablas existentes: `wallets`, `wallet_balances`, `transaction_balance_reference`, `transactions`,
-`processed_events` y `event_processing_log`. No tiene migraciones ni tablas propias; synchronize y
+`processed_events` y `event_processing_log`. No tiene tablas propias y solo una migración de índice (ver abajo); synchronize y
 migrationsRun siempre en false. La migración que agrega `consumer` a `processed_events` pertenece al
-repo commodo-transaction-manager-integrations y ya está aplicada. El índice `idx_wallet_balances_transaction_id` sobre `wallet_balances(transaction_id)` (que usa `isAntecedentSettled`) también se define allí, en `libs/db-managment/src/migrations/default-indexes`; está creado en la BD local pero pendiente de desplegar en los demás ambientes. Es el primer consumidor de
+repo commodo-transaction-manager-integrations y ya está aplicada. El índice `idx_wallet_balances_transaction_id` sobre `wallet_balances(transaction_id)` (que usa `isAntecedentSettled`) es la excepción: su migración vive en este repo, en `apps/microbalances-worker/migrations/default` (datasource `migrations/default.datasource.ts`, scripts `pnpm migration:show|run|revert:default`, sin transacción por `CONCURRENTLY`). Está aplicada en la BD local y pendiente en los demás ambientes; la aplicación sigue sin ejecutar migraciones. Es el primer consumidor de
 microsaldos sobre estas tablas: no se reprocesan transacciones históricas.
 
 ## Reglas transversales
