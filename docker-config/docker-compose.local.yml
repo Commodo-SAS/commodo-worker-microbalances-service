@@ -33,6 +33,7 @@ services:
       ENV: LOCAL
     volumes:
       - ./apps:/app/apps
+      - ./libs:/app/libs
       - ./docs:/app/docs
       - ./ai:/app/ai
       - ./tsconfig.json:/app/tsconfig.json:ro

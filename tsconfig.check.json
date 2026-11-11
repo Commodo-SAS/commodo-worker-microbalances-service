@@ -5,6 +5,6 @@
         "tsBuildInfoFile": "./.cache/typecheck.tsbuildinfo",
         "types": ["node", "jest"]
     },
-    "include": ["apps/**/*.ts"],
+    "include": ["apps/**/*.ts", "libs/**/*.ts"],
     "exclude": ["node_modules", "dist"]
 }
